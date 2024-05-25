@@ -2,7 +2,11 @@ from tkinter import *
 from tkinter import ttk, messagebox, font, filedialog, colorchooser
 from PIL import Image, ImageTk
 import time, win32api, pyttsx3, threading, webbrowser, PyPDF2, datetime
+import mysql.connector as db
 from fpdf import FPDF
+import Sketch_With_Sam as Drawing_app
+
+
 class TextPad:
     def __init__(self, root):
         self.window = root
@@ -16,6 +20,8 @@ class TextPad:
         self.engine_control = pyttsx3.init('sapi5')
         self.engine_control.setProperty('rate', 130)
 
+        # This is for history store particular account related
+        self.permission_to_update = 0
 
         # Varibales Initialization for particular account
         self.record_no = -1
@@ -26,6 +32,15 @@ class TextPad:
         self.pdf_saved_file_name = "Nothing To Show"
         self.saved_file_name_in_google_drive = "Nothing To Show"
 
+        # For tag store
+        self.font_tag_name_store = []
+        self.font_tag_counter = 0
+
+        self.fg_tag_name_store = []
+        self.fg_tag_counter = 0
+
+        self.bg_tag_name_store = []
+        self.bg_tag_counter = 0
 
         # Font Family Variable Initialization
         self.font_family = StringVar()
@@ -34,11 +49,11 @@ class TextPad:
         self.current_font_size = 20
         self.current_font = "Arial"
         self.get_time = -1
+        self.curr_acc_pwd = None
 
         # Instructional button Store for future use
         self.header_1_components = []
         self.header_2_components = []
-        self.acc_components = []
         self.status_components = []
 
         # Some basic function call
@@ -167,7 +182,7 @@ class TextPad:
                                    image=view_replace_img, command=self.replace_UI)
         self.view_menu.add_separator(background="paleturquoise")
         self.view_menu.add_command(label="Dark Mode", background="paleturquoise", foreground="black",
-                                   activebackground="darkcyan", activeforeground="darkcyan",
+                                   activebackground="black", activeforeground="paleturquoise",
                                    font=("Arial", 10, "bold", "italic"), compound=LEFT, image=view_dark_img,
                                    command=self.dark_mode)
         self.view_menu.add_command(label="Light Mode", background="paleturquoise", foreground="black",
@@ -228,10 +243,6 @@ class TextPad:
         self.__header_3_decoration()
         self.__header_4_decoration()
 
-
-    def __status(self):  # Status Section Make
-        pass
-
     def __writing_area(self):  # Main Writing Space
         make_scroll_vertical = Scrollbar(self.window)
         make_scroll_vertical.pack(side=RIGHT, fill=Y)
@@ -253,7 +264,7 @@ class TextPad:
 
         # Font Size Controller Scale
         font_size_controller = Scale(self.header_1, font=("Arial", 10, "bold"), width=15, orient=HORIZONTAL,
-                                     background="green", from_=1, to=100,
+                                     background="green", foreground="gold", from_=1, to=100, activebackground="red",
                                      relief=RAISED, bd=2, command=self.change_font_size)
         font_size_controller.place(x=0, y=0)
         font_size_controller.set(self.current_font_size)
@@ -272,7 +283,7 @@ class TextPad:
         r_align.place(x=280 - 10, y=2)
 
         # Instructional Label
-        self.font_size_label = Label(self.header_1, text="Font Size", font=("Arial", 15, "bold"),bg="darkcyan",
+        self.font_size_label = Label(self.header_1, text="Font Size", font=("Arial", 15, "bold"), bg="darkcyan",
                                      fg="black")
         self.font_size_label.place(x=5, y=50)
         self.alignment_label = Label(self.header_1, text="Alignment", font=("Arial", 15, "bold"), bg="darkcyan",
@@ -287,7 +298,7 @@ class TextPad:
 
     def __header_2_decoration(self):
         # Font Collection
-        font_combobox = ttk.Combobox(self.header_2, width=30, values=font.families(), foreground="black",
+        font_combobox = ttk.Combobox(self.header_2, width=30, values=font.families(), foreground="blue",
                                      font=("Arial", 10, "bold"), state="readonly", textvariable=self.font_family)
         font_combobox.place(x=5 + 5, y=0)
         font_combobox.set("Arial")
@@ -298,7 +309,7 @@ class TextPad:
 
         # Background Color list
         select_bg_color = [1, 2, 3, 4, 5, 6]
-        bg_color_combobox = ttk.Combobox(self.header_2, width=30, values=select_bg_color, foreground="black",
+        bg_color_combobox = ttk.Combobox(self.header_2, width=30, values=select_bg_color, foreground="red",
                                          font=("Arial", 10, "bold"), state="readonly")
         bg_color_combobox.place(x=5 + 5, y=30)
         bg_color_combobox.current(0)
@@ -309,8 +320,8 @@ class TextPad:
 
         # Bullets list
         total_bullets = ["1   2   3", "#   #   #", "!   !   !", ">    >    >", "o   o   o"]
-        bullet_collection = ttk.Combobox(self.header_2, width=30, values=total_bullets, foreground="darkcyan",
-                                         font=("Arial", 10, "bold"), state="readonly", background="black")
+        bullet_collection = ttk.Combobox(self.header_2, width=30, values=total_bullets, foreground="black",
+                                         font=("Arial", 10, "bold"), state="readonly", background="darkcyan")
         bullet_collection.place(x=5 + 5, y=60)
         bullet_collection.current(0)
 
@@ -327,6 +338,7 @@ class TextPad:
         global ts_img, u_img, lc_img, g_search_image, find_image_take, replace_image_take
 
         # Image bringing
+        ts_img = ImageTk.PhotoImage(Image.open("TS.png").resize((50, 50), Image.LANCZOS))
         u_img = ImageTk.PhotoImage(Image.open("U.png").resize((50, 50), Image.LANCZOS))
         lc_img = ImageTk.PhotoImage(Image.open("L.png").resize((50, 50), Image.LANCZOS))
         g_search_image = ImageTk.PhotoImage(Image.open("g_search.png").resize((50, 50), Image.LANCZOS))
@@ -342,18 +354,21 @@ class TextPad:
                         command=lambda: self.case_change('l'))
         l_case.place(x=140, y=0)
 
+        ts = Button(self.header_3, width=35, height=30, image=ts_img, bg="#00FF00", relief=RAISED, bd=3,
+                    command=self.text_to_speech_convert_with_threading)
+        ts.place(x=250, y=0)
 
         w_mark = Button(self.header_3, width=35, height=30, image=g_search_image, bg="#00FF00", relief=RAISED, bd=3,
                         command=self.ui_for_searching)
-        w_mark.place(x=250, y=0)
+        w_mark.place(x=25, y=45)
 
         g_search = Button(self.header_3, width=35, height=30, image=find_image_take, bg="#00FF00", relief=RAISED, bd=3,
                           command=self.find_UI)
-        g_search.place(x=25, y=45)
+        g_search.place(x=140, y=45)
 
         w_meaning = Button(self.header_3, width=35, height=30, image=replace_image_take, bg="#00FF00", relief=RAISED,
                            bd=3, command=self.replace_UI)
-        w_meaning.place(x=145, y=45)
+        w_meaning.place(x=250, y=45)
 
     def __header_4_decoration(self):
         global pdf_txt_img, dark_mode_img_take, wp_logo_img, wiki_img, light_mode_image, paint_image
@@ -364,13 +379,14 @@ class TextPad:
         wp_logo_img = ImageTk.PhotoImage(Image.open("wp_logo.jpg").resize((50, 50), Image.LANCZOS))
         wiki_img = ImageTk.PhotoImage(Image.open("wiki.png").resize((50, 50), Image.LANCZOS))
         light_mode_image = ImageTk.PhotoImage(Image.open("bulb_img.jpg").resize((40, 40), Image.LANCZOS))
+        paint_image = ImageTk.PhotoImage(Image.open("pencil.png").resize((30, 30), Image.LANCZOS))
 
         # Instructional buttons
         pdf_txt = Button(self.header_4, width=35, height=30, image=pdf_txt_img, font=("Arial", 11, "bold"),
                          bg="#00FF00", relief=RAISED, bd=3, command=self.pdf_to_text)
         pdf_txt.place(x=25, y=0)
 
-        sg = Button(self.header_4, width=35, height=30, image=dark_mode_img_take, font=("Arial", 2, "bold"), bg="darkcyan",
+        sg = Button(self.header_4, width=35, height=30, image=dark_mode_img_take, font=("Arial", 2, "bold"), bg="black",
                     relief=RAISED, bd=3, command=self.dark_mode)
         sg.place(x=125, y=0)
 
@@ -382,31 +398,201 @@ class TextPad:
                    relief=RAISED, bd=3, command=self.open_wikipedia)
         w.place(x=25, y=45)
 
-        ts = Button(self.header_4, width=35, height=30, image=light_mode_image, bg="white", relief=RAISED, bd=3,
-               command=self.light_mode)
+        ts = Button(self.header_4, width=35, height=30, image=light_mode_image, bg="darkcyan", relief=RAISED, bd=3,
+                    command=self.light_mode)
         ts.place(x=125, y=45)
 
-    def __table_checking(self, all_result, acc_name):  # Checking Account name present or not in database
-        take = []
-        for x in all_result:
-            take.append(x[0])
-        take.sort()
 
-        # Checking account named table present or not
-        def binary_search_table_check(take_it, start, end, find_it):
-            while start <= end:
-                mid = int((start + end) / 2)
-                if take_it[mid] == find_it:
-                    return True
-                elif find_it > take[mid]:
-                    start = mid + 1
-                else:
-                    end = mid - 1
-            return False
+    def __history_check_options(self):  # Account History Checking
+        top = Toplevel(relief=RAISED, bd=10)
+        top.title("History Checking Topics")
+        top.geometry("800x600")
+        top.maxsize(800, 600)
+        top.minsize(800, 600)
+        top.config(bg="#141414")
 
-        return binary_search_table_check(take, 0, len(take) - 1, acc_name)
+        general_information = Button(top, text="General Information", font=("Arial", 25, "bold", "italic"),
+                                     bg="#141414", fg="#FF0000", relief=RAISED, bd=5, activebackground="green",
+                                     activeforeground="gold", command=lambda: self.__history_viewer(1))
+        general_information.pack(pady=20)
 
+        searching_google = Button(top, text="Google Search History", font=("Arial", 25, "bold", "italic"), bg="#141414",
+                                  fg="black", relief=RAISED, bd=5, activebackground="green", activeforeground="gold",
+                                  command=lambda: self.__history_viewer(2))
+        searching_google.pack(pady=20)
 
+        send_msg_to_wp = Button(top, text="Whatsapp Messages", font=("Arial", 25, "bold", "italic"), bg="#141414",
+                                fg="#00FF00", relief=RAISED, bd=5, activebackground="green", activeforeground="gold",
+                                command=lambda: self.__history_viewer(3))
+        send_msg_to_wp.pack(pady=20)
+
+        pdf_saved_file_name = Button(top, text="Saved PDF file names", font=("Arial", 25, "bold", "italic"),
+                                     bg="#141414", fg="magenta", relief=RAISED, bd=5, activebackground="green",
+                                     activeforeground="gold", command=lambda: self.__history_viewer(4))
+        pdf_saved_file_name.pack(pady=20)
+
+        file_save_in_google_drive = Button(top, text="Saved file names in google drive",
+                                           font=("Arial", 25, "bold", "italic"), bg="#141414", fg="chocolate",
+                                           relief=RAISED, bd=5, activebackground="green", activeforeground="gold",
+                                           command=lambda: self.__history_viewer(5))
+        file_save_in_google_drive.pack(pady=20)
+
+        top.mainloop()
+
+    def __history_viewer(self, instruction_no):  # UI for hisotry view
+        root = Toplevel()
+
+        # Frame make
+        main_frame = Frame(root, bg="#141414")
+        main_frame.pack(fill=BOTH, expand=1)
+
+        # Canvas make
+        my_canvas = Canvas(main_frame, bg="#141414")
+        my_canvas.pack(side=LEFT, fill=BOTH, expand=1)
+
+        # Add a scrollbar to canvas
+        my_scroll = Scrollbar(main_frame, orient=VERTICAL, command=my_canvas.yview)
+        my_scroll.pack(side=RIGHT, fill=Y)
+
+        # Configure the canvas
+        my_canvas.config(yscrollcommand=my_scroll.set)
+        my_canvas.bind('<Configure>', lambda e: my_canvas.configure(scrollregion=my_canvas.bbox("all")))
+
+        # Make second frame
+        second_frame = Frame(my_canvas, bg="#141414")
+
+        # Add that new frame to a window in the canvas
+        my_canvas.create_window((0, 0), window=second_frame, anchor="nw")
+
+        access_old = db.connect(host="localhost", user="root", password=self.db_pwd_store)
+        switch_cur = access_old.cursor()  # Cursor control take
+
+        switch_cur.execute("USE __modern_textpad_sam_account_container;")
+        access_old.commit()
+
+        if instruction_no == 1:
+            root.title("General Information")
+            root.geometry("1350x300")
+            switch_cur.execute(
+                f"SELECT Record_no,Account_pwd,Date,Working_time,Total_words,Total_lines,Saved_file_name FROM {self.acc_name};")
+            result_take = switch_cur.fetchall()
+
+            heading_names = ["Entry no", "Account password", "Date", "Working Time", "Total word", "Total line",
+                             "Saved file name"]
+
+            col = 0
+            for every in heading_names:
+                Label(second_frame, text=every, font=("Arial", 20, "bold", "italic", "underline"), bg="#141414",
+                      fg="gold").grid(row=0, column=col, padx=12)
+                col += 1
+
+            h_x = 1
+            for every in result_take:
+                v_y = 0
+                for every_person in every:
+                    Label(second_frame, text=every_person, font=("Arial", 15, "bold"), bg="#141414", fg="green").grid(
+                        row=h_x, column=v_y, padx=15, pady=17)
+                    print(every_person)
+                    v_y += 1
+                h_x += 1
+
+        elif instruction_no == 2:
+            root.title("Google Search History")
+            root.geometry("700x500")
+            switch_cur.execute(f"SELECT Record_no,Searching_things_in_google FROM {self.acc_name};")
+            result_take = switch_cur.fetchall()
+
+            heading_names = ["Entry no", "Google Search History"]
+
+            col = 0
+            for every in heading_names:
+                Label(second_frame, text=every, font=("Arial", 20, "bold", "italic", "underline"), bg="#141414",
+                      fg="gold").grid(row=0, column=col, padx=12)
+                col += 1
+
+            h_x = 1
+            for every in result_take:
+                v_y = 0
+                for every_person in every:
+                    Label(second_frame, text=every_person, font=("Arial", 15, "bold"), bg="#141414", fg="green").grid(
+                        row=h_x, column=v_y, padx=15, pady=17)
+                    print(every_person)
+                    v_y += 1
+                h_x += 1
+
+        elif instruction_no == 3:
+            root.title("Whatsapp messages")
+            root.geometry("700x500")
+            switch_cur.execute(f"SELECT Record_no,Send_message_to_whatsapp FROM {self.acc_name};")
+            result_take = switch_cur.fetchall()
+
+            heading_names = ["Entry no", "Whatsapp Message Record"]
+
+            col = 0
+            for every in heading_names:
+                Label(second_frame, text=every, font=("Arial", 20, "bold", "italic", "underline"), bg="#141414",
+                      fg="gold").grid(row=0, column=col, padx=12)
+                col += 1
+
+            h_x = 1
+            for every in result_take:
+                v_y = 0
+                for every_person in every:
+                    Label(second_frame, text=every_person, font=("Arial", 15, "bold"), bg="#141414", fg="green").grid(
+                        row=h_x, column=v_y, padx=15, pady=17)
+                    print(every_person)
+                    v_y += 1
+                h_x += 1
+
+        elif instruction_no == 4:
+            root.title("Files saved as PDF")
+            root.geometry("700x500")
+            switch_cur.execute(f"SELECT Record_no,PDF_saved_file_name FROM {self.acc_name};")
+            result_take = switch_cur.fetchall()
+
+            heading_names = ["Entry no", "PDF Converted File Name"]
+
+            col = 0
+            for every in heading_names:
+                Label(second_frame, text=every, font=("Arial", 20, "bold", "italic", "underline"), bg="#141414",
+                      fg="gold").grid(row=0, column=col, padx=12)
+                col += 1
+
+            h_x = 1
+            for every in result_take:
+                v_y = 0
+                for every_person in every:
+                    Label(second_frame, text=every_person, font=("Arial", 15, "bold"), bg="#141414", fg="green").grid(
+                        row=h_x, column=v_y, padx=15, pady=17)
+                    print(every_person)
+                    v_y += 1
+                h_x += 1
+
+        elif instruction_no == 5:
+            root.title("Saved file name in google drive")
+            root.geometry("700x500")
+            switch_cur.execute(f"SELECT Record_no,Saved_file_name_in_google_drive FROM {self.acc_name};")
+            result_take = switch_cur.fetchall()
+
+            heading_names = ["Entry no", "Saved File in Google Drive"]
+
+            col = 0
+            for every in heading_names:
+                Label(second_frame, text=every, font=("Arial", 20, "bold", "italic", "underline"), bg="#141414",
+                      fg="gold").grid(row=0, column=col, padx=12)
+                col += 1
+
+            h_x = 1
+            for every in result_take:
+                v_y = 0
+                for every_person in every:
+                    Label(second_frame, text=every_person, font=("Arial", 15, "bold"), bg="#141414", fg="green").grid(
+                        row=h_x, column=v_y, padx=15, pady=17)
+                    print(every_person)
+                    v_y += 1
+                h_x += 1
+
+        root.mainloop()
     def previous_tag_remove(self):
         for every in self.font_tag_name_store:
             self.main_writing_space.tag_remove(every[0], every[1], every[2])
@@ -575,7 +761,7 @@ class TextPad:
                 if search_it:
                     remove_highlight()
                     start_index = "1.0"
-                    self.main_writing_space.tag_configure("highlight", background="black")
+                    self.main_writing_space.tag_configure("highlight", background="red")
                     match_pattern = 0
                     while True:
                         start_index = self.main_writing_space.search(search_it, start_index, stopindex=END)
@@ -687,7 +873,7 @@ class TextPad:
         self.file_menu.insert_separator(6, background="#474747")
 
         self.edit_menu.entryconfig("Undo", background="#474747")
-        self.edit_menu.entryconfig("blacko", background="#474747")
+        self.edit_menu.entryconfig("Redo", background="#474747")
         self.edit_menu.entryconfig("Cut", background="#474747")
         self.edit_menu.entryconfig("Copy", background="#474747")
         self.edit_menu.entryconfig("Paste", background="#474747")
@@ -713,20 +899,20 @@ class TextPad:
         self.customization_menu.insert_separator(3, background="#474747")
 
     def light_mode(self):
-        self.main_writing_space.config(bg="white", fg="black", insertbackground="black", selectbackground="black")
+        self.main_writing_space.config(bg="white", fg="black", insertbackground="black", selectbackground="blue")
 
-        self.header_1.config(bg="darkcyan")
+        self.header_1.config(bg="black")
         self.font_size_label.config(bg="darkcyan", fg="black")
         self.alignment_label.config(bg="darkcyan", fg="black")
         self.header_1_components[0].config(bg="green")
 
-        self.header_2.config(bg="darkcyan")
-        self.header_3.config(bg="darkcyan")
-        self.header_4.config(bg="darkcyan")
-        self.acc.config(bg="darkcyan")
+        self.header_2.config(bg="black")
+        self.header_3.config(bg="black")
+        self.header_4.config(bg="black")
+        self.acc.config(bg="black")
 
         for every in self.status_components:
-            every.config(bg="darkyan", fg="black")
+            every.config(bg="darkcyan", fg="black")
 
         self.file_menu.entryconfig("New", background="green", foreground="black")
         self.file_menu.entryconfig("Open", background="green", foreground="black")
@@ -741,7 +927,7 @@ class TextPad:
         self.file_menu.insert_separator(6, background="green")
 
         self.edit_menu.entryconfig("Undo", background="green", foreground="black")
-        self.edit_menu.entryconfig("o", background="green", foreground="black")
+        self.edit_menu.entryconfig("Redo", background="green", foreground="black")
         self.edit_menu.entryconfig("Cut", background="green", foreground="black")
         self.edit_menu.entryconfig("Copy", background="green", foreground="black")
         self.edit_menu.entryconfig("Paste", background="green", foreground="black")
@@ -1289,45 +1475,6 @@ class TextPad:
             messagebox.showerror("Error",
                                  "Please check your internet connection and select a text to search in wikipedia")
 
-
-    # Status Functionality Controller
-    def total_word_and_line_counter(self, e=None):
-        total_take = list(self.main_writing_space.get(1.0, END).split("\n"))
-
-        self.total_line = len(total_take) - 1
-        self.status_components[1]['text'] = "Total Line: " + str(len(total_take) - 1)
-
-        count = 0
-        for element in total_take:
-            temp = list(element)
-            if temp and (temp[0] == "#" or temp[0] == ">" or temp[0] == "o" or temp[0] == "" or temp[0] == "!"):
-                temp.remove(temp[0])
-
-            if temp.count('\t') > 0:
-                temp[temp.index('\t')] = " "
-                while temp.count('\t') > 0:
-                    temp.remove('\t')
-
-            while temp.count('.') > 0:
-                index = temp.index('.')
-                if (index + 1 < len(temp) and temp[index + 1] == ' ') and (index - 1 >= 0):
-                    temp.remove(temp[index])
-                else:
-                    break
-
-            element = "".join(temp)
-            store = list(element.split(" "))
-
-            while store.count('') > 0:
-                store.remove('')
-
-            count += len(store)
-
-        self.total_word = count
-        self.status_components[0]['text'] = "Total Word: " + str(count)
-
-    def __time_counter(self):
-        pass
 
 if __name__ == '__main__':
     window = Tk()
