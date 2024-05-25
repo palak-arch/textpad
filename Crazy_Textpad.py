@@ -32,15 +32,6 @@ class TextPad:
         self.pdf_saved_file_name = "Nothing To Show"
         self.saved_file_name_in_google_drive = "Nothing To Show"
 
-        # For tag store
-        self.font_tag_name_store = []
-        self.font_tag_counter = 0
-
-        self.fg_tag_name_store = []
-        self.fg_tag_counter = 0
-
-        self.bg_tag_name_store = []
-        self.bg_tag_counter = 0
 
         # Font Family Variable Initialization
         self.font_family = StringVar()
@@ -49,12 +40,10 @@ class TextPad:
         self.current_font_size = 20
         self.current_font = "Arial"
         self.get_time = -1
-        self.curr_acc_pwd = None
 
         # Instructional button Store for future use
         self.header_1_components = []
         self.header_2_components = []
-        self.status_components = []
 
         # Some basic function call
         self.__writing_area()
@@ -181,12 +170,12 @@ class TextPad:
                                    font=("Arial", 10, "bold", "italic"), accelerator="(Ctrl+R)", compound=LEFT,
                                    image=view_replace_img, command=self.replace_UI)
         self.view_menu.add_separator(background="paleturquoise")
-        self.view_menu.add_command(label="Dark Mode", background="paleturquoise", foreground="black",
-                                   activebackground="black", activeforeground="paleturquoise",
+        self.view_menu.add_command(label="Dark Mode", background="paleturquoise", foreground="darkcyan",
+                                   activebackground="darkcyan", activeforeground="paleturquoise",
                                    font=("Arial", 10, "bold", "italic"), compound=LEFT, image=view_dark_img,
                                    command=self.dark_mode)
-        self.view_menu.add_command(label="Light Mode", background="paleturquoise", foreground="black",
-                                   activebackground="black", activeforeground="paleturquoise",
+        self.view_menu.add_command(label="Light Mode", background="paleturquoise", foreground="darkcyan",
+                                   activebackground="darkcyan", activeforeground="paleturquoise",
                                    font=("Arial", 10, "bold", "italic"), compound=LEFT, image=view_light_img,
                                    command=self.light_mode)
         self.window.bind('<Control-Key-f>', self.find_UI)
@@ -899,17 +888,17 @@ class TextPad:
         self.customization_menu.insert_separator(3, background="#474747")
 
     def light_mode(self):
-        self.main_writing_space.config(bg="white", fg="black", insertbackground="black", selectbackground="blue")
+        self.main_writing_space.config(bg="white", fg="darkcyan", insertbackground="darkcyan", selectbackground="blue")
 
-        self.header_1.config(bg="black")
+        self.header_1.config(bg="darkcyan")
         self.font_size_label.config(bg="darkcyan", fg="black")
         self.alignment_label.config(bg="darkcyan", fg="black")
         self.header_1_components[0].config(bg="green")
 
-        self.header_2.config(bg="black")
-        self.header_3.config(bg="black")
-        self.header_4.config(bg="black")
-        self.acc.config(bg="black")
+        self.header_2.config(bg="darkcyan")
+        self.header_3.config(bg="darkcyan")
+        self.header_4.config(bg="darkcyan")
+        self.acc.config(bg="darkcyan")
 
         for every in self.status_components:
             every.config(bg="darkcyan", fg="black")
